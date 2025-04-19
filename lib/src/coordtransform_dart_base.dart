@@ -77,7 +77,7 @@ class CoordinateTransformUtil {
      * @return 火星坐标数组
      */
     static List<double> wgs84ToGcj02(double lng, double lat) {
-        if (!isInChina(lng, lat)) {
+        if (isInChina(lng, lat)) {
             return [lng, lat];
         }
         return wgs84ToGcj02Raw(lng, lat);

@@ -77,7 +77,7 @@ class CoordinateTransformUtil {
      * @return 火星坐标数组
      */
     static List<double> wgs84ToGcj02(double lng, double lat) {
-        if (isInChina(lng, lat)) {
+        if (!isInChina(lng, lat)) {
             return [lng, lat];
         }
         return wgs84ToGcj02Raw(lng, lat);
@@ -130,7 +130,12 @@ class CoordinateTransformUtil {
      * @return 火星坐标数组
      */
     static List<double> wgs84ToGcj02Raw(double lng, double lat) {
-        return transform(lng, lat);
+        //return transform(lng, lat);
+      List<double> offset_output = offset(lng, lat);
+		  double mglng = lng + offset_output[0];
+		  double mglat = lat + offset_output[1];
+
+		  return [mglng, mglat];
     }
 
     /**
@@ -140,8 +145,38 @@ class CoordinateTransformUtil {
      * @return WGS84坐标数组
      */
     static List<double> gcj02ToWgs84Raw(double lng, double lat) {
-        List<double> out = transform(lng, lat);
-        return [lng * 2 - out[0], lat * 2 - out[1]];
+        // List<double> out = transform(lng, lat);
+        // return [lng * 2 - out[0], lat * 2 - out[1]];
+
+      double initDelta = 0.01;
+		  double threshold = 0.000000001;
+		  double dLat = initDelta, dLon = initDelta;
+		  double mLat = lat - dLat, mLon = lng - dLon;
+		  double pLat = lat + dLat, pLon = lng + dLon;
+		  double wgsLat, wgsLng, i = 0;
+		  while (true) {
+			  wgsLat = (mLat + pLat) / 2;
+			  wgsLng = (mLon + pLon) / 2;
+			  List<double> point = wgs84ToGcj02(wgsLng, wgsLat);
+			dLon = point[0] - lng;
+			dLat = point[1] - lat;
+			if ((dLat.abs() < threshold) && (dLon.abs() < threshold))
+				break;
+
+			if (dLat > 0)
+				pLat = wgsLat;
+			else
+				mLat = wgsLat;
+			if (dLon > 0)
+				pLon = wgsLng;
+			else
+				mLon = wgsLng;
+
+			if (++i > 10000)
+				break;
+		}
+
+		return [wgsLng, wgsLat];
     }
 
     /**
@@ -211,7 +246,7 @@ class CoordinateTransformUtil {
         dlng = (dlng * 180.0) / (A / sqrtmagic * Math.cos(radlat) * PI);
         return [lng + dlng, lat + dlat];
     }
-
+// lng+lng-lng-dlng    lng * 2 - out[0] ng+lng
     /**
      * 纬度转换
      */
@@ -235,4 +270,19 @@ class CoordinateTransformUtil {
         ret += (150.0 * Math.sin(lng / 12.0 * PI) + 300.0 * Math.sin(lng / 30.0 * PI)) * 2.0 / 3.0;
         return ret;
     }
+
+    @internal static List<double> offset(double lng, double lat) {
+		  List<double> lngLat = [0,0];
+		  double dlng = transformLng(lng - 105.0, lat - 35.0);
+		  double dlat = transformLat(lng - 105.0, lat - 35.0);
+		  double radlat = lat / 180.0 * PI;
+		  double magic = Math.sin(radlat);
+		  magic = 1 - EE * magic * magic;
+		  double sqrtmagic = Math.sqrt(magic);
+		  dlng = (dlng * 180.0) / (A / sqrtmagic * Math.cos(radlat) * PI);
+		  dlat = (dlat * 180.0) / ((A * (1 - EE)) / (magic * sqrtmagic) * PI);
+		  lngLat[0] = dlng;
+		  lngLat[1] = dlat;
+		  return lngLat;
+	}
 }
